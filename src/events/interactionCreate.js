@@ -812,6 +812,8 @@ async function handleOrderStatusSelect(interaction) {
   await interaction.update({ embeds: [embed], components: interaction.message.components })
   // Persist status change to orders table and move ticket if linked
   try {
+    const problems = []
+
     let order = ordersModel.getByMessage(interaction.guild.id, interaction.channel.id, interaction.message.id)
     if (!order) {
       order = ordersModel.getByMessageId(interaction.guild.id, interaction.message.id)
@@ -820,11 +822,23 @@ async function handleOrderStatusSelect(interaction) {
       order = ordersModel.getLatestByBuyer(interaction.guild.id, buyerId)
     }
 
-    if (!order) return
+    if (!order) {
+      await interaction.followUp({
+        content: `Order status updated to **${selected}**, but: couldn't find a matching order record for this message.`,
+        ephemeral: true,
+      })
+      return
+    }
 
     ordersModel.updateStatus(interaction.guild.id, order.id, selected)
 
-    if (!order.ticket_channel_id) return
+    if (!order.ticket_channel_id) {
+      await interaction.followUp({
+        content: `Order status updated to **${selected}**, but: order is not linked to a ticket channel.`,
+        ephemeral: true,
+      })
+      return
+    }
 
     // update ticket status in DB
     try {
@@ -843,7 +857,13 @@ async function handleOrderStatusSelect(interaction) {
       }
     }
 
-    if (!ticketChannel) return
+    if (!ticketChannel) {
+      await interaction.followUp({
+        content: `Order status updated to **${selected}**, but: ticket channel could not be found.`,
+        ephemeral: true,
+      })
+      return
+    }
 
     // rename channel to reflect status (strip existing prefixes)
     try {
@@ -853,10 +873,12 @@ async function handleOrderStatusSelect(interaction) {
       try {
         await ticketChannel.setName(newName)
       } catch (e) {
-        // ignore rename failures (permissions)
+        console.error("Failed to rename ticket channel:", e)
+        problems.push(`channel rename failed (${e.message || "Missing Permissions"})`)
       }
     } catch (e) {
       console.error("Failed to compute/rename ticket channel name:", e)
+      problems.push(`channel rename failed (${e.message || "Failed to compute channel name"})`)
     }
 
     let moved = false
@@ -881,55 +903,64 @@ async function handleOrderStatusSelect(interaction) {
       ]
 
       if (!procCat) {
-        procCat = await interaction.guild.channels.create({
-          name: "processing",
-          type: ChannelType.GuildCategory,
-          permissionOverwrites: baseOverwrites
-        })
+        try {
+          procCat = await interaction.guild.channels.create({
+            name: "processing",
+            type: ChannelType.GuildCategory,
+            permissionOverwrites: baseOverwrites
+          })
+        } catch (e) {
+          console.error("Failed to create processing category:", e)
+          problems.push(`couldn't create processing category (${e.message || "Missing Permissions"})`)
+        }
       } else {
         // Force update category permissions to be private/limited
         try {
           await procCat.permissionOverwrites.set(baseOverwrites)
         } catch (e) {
           console.error("Failed to update processing category permissions:", e)
+          problems.push(`couldn't update processing category permissions (${e.message || "Missing Permissions"})`)
         }
       }
 
-      try {
-        await ticketChannel.setParent(procCat.id)
+      if (procCat) {
+        try {
+          await ticketChannel.setParent(procCat.id)
 
-        // Secure permissions: Deny usage for everyone, allow specific access
-        const newOverwrites = [...baseOverwrites]
+          // Secure permissions: Deny usage for everyone, allow specific access
+          const newOverwrites = [...baseOverwrites]
 
-        // Allow Buyer
-        if (buyerId) {
-          newOverwrites.push({
-            id: buyerId,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-          })
+          // Allow Buyer
+          if (buyerId) {
+            newOverwrites.push({
+              id: buyerId,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            })
+          }
+
+          // Allow Staff Role
+          if (staffRole) {
+            newOverwrites.push({
+              id: staffRole.id,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            })
+          }
+
+          // Ensure the person (Admin/Staff) moving it doesn't lock themselves out if not owner/admin/staff-role
+          if (interaction.user.id !== buyerId) {
+            newOverwrites.push({
+              id: interaction.user.id,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            })
+          }
+
+          await ticketChannel.permissionOverwrites.set(newOverwrites)
+
+          moved = true
+        } catch (e) {
+          console.error("Failed to move ticket to processing category:", e)
+          problems.push(`couldn't move channel to processing category (${e.message || "Missing Permissions"})`)
         }
-
-        // Allow Staff Role
-        if (staffRole) {
-          newOverwrites.push({
-            id: staffRole.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-          })
-        }
-
-        // Ensure the person (Admin/Staff) moving it doesn't lock themselves out if not owner/admin/staff-role
-        if (interaction.user.id !== buyerId) {
-          newOverwrites.push({
-            id: interaction.user.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-          })
-        }
-
-        await ticketChannel.permissionOverwrites.set(newOverwrites)
-
-        moved = true
-      } catch (e) {
-        console.error("Failed to move ticket to processing category:", e)
       }
 
       await ticketChannel.send(
@@ -955,44 +986,53 @@ async function handleOrderStatusSelect(interaction) {
       ]
 
       if (!doneCat) {
-        doneCat = await interaction.guild.channels.create({
-          name: "done",
-          type: ChannelType.GuildCategory,
-          permissionOverwrites: baseOverwrites
-        })
+        try {
+          doneCat = await interaction.guild.channels.create({
+            name: "done",
+            type: ChannelType.GuildCategory,
+            permissionOverwrites: baseOverwrites
+          })
+        } catch (e) {
+          console.error("Failed to create done category:", e)
+          problems.push(`couldn't create done category (${e.message || "Missing Permissions"})`)
+        }
       } else {
         try {
           await doneCat.permissionOverwrites.set(baseOverwrites)
         } catch (e) {
           console.error("Failed to update done category permissions:", e)
+          problems.push(`couldn't update done category permissions (${e.message || "Missing Permissions"})`)
         }
       }
 
-      try {
-        await ticketChannel.setParent(doneCat.id)
+      if (doneCat) {
+        try {
+          await ticketChannel.setParent(doneCat.id)
 
-        const newOverwrites = [...baseOverwrites]
+          const newOverwrites = [...baseOverwrites]
 
-        // Allow Buyer
-        if (buyerId) {
-          newOverwrites.push({
-            id: buyerId,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-          })
+          // Allow Buyer
+          if (buyerId) {
+            newOverwrites.push({
+              id: buyerId,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            })
+          }
+
+          // Ensure the person (Admin/Staff) moving it doesn't lock themselves out
+          if (interaction.user.id !== buyerId) {
+            newOverwrites.push({
+              id: interaction.user.id,
+              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+            })
+          }
+
+          await ticketChannel.permissionOverwrites.set(newOverwrites)
+          moved = true
+        } catch (e) {
+          console.error("Failed to move ticket to done category:", e)
+          problems.push(`couldn't move channel to done category (${e.message || "Missing Permissions"})`)
         }
-
-        // Ensure the person (Admin/Staff) moving it doesn't lock themselves out
-        if (interaction.user.id !== buyerId) {
-          newOverwrites.push({
-            id: interaction.user.id,
-            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-          })
-        }
-
-        await ticketChannel.permissionOverwrites.set(newOverwrites)
-        moved = true
-      } catch (e) {
-        console.error("Failed to move ticket to done category:", e)
       }
 
       const vouchChannel = interaction.guild.channels.cache.find((c) => c.name === "vouchie" && c.type === ChannelType.GuildText)
@@ -1003,9 +1043,17 @@ async function handleOrderStatusSelect(interaction) {
       )
     }
 
-    // send ephemeral feedback to the user who changed status
+    // send single consolidated ephemeral feedback to the user who changed status
     try {
-      await interaction.followUp({ content: `Order status updated to **${selected}**${moved ? ' and ticket moved.' : ''}`, ephemeral: true })
+      let feedback = `Order status updated to **${selected}**`
+      if (problems.length === 0 && moved) {
+        feedback += " and ticket moved."
+      } else if (problems.length === 0) {
+        feedback += "."
+      } else {
+        feedback += `, but: ${problems.join("; ")}.`
+      }
+      await interaction.followUp({ content: feedback, ephemeral: true })
     } catch (e) {
       // ignore followUp errors
     }
