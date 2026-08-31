@@ -1,0 +1,322 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #5865f2;
+  --primary-hover: #4752c4;
+  --success: #57f287;
+  --danger: #ed4245;
+  --warning: #faa61a;
+  --background: #0f1419;
+  --surface: #1a1f2e;
+  --surface-light: #262d3d;
+  --text: #e4e6eb;
+  --text-muted: #9ca3af;
+  --border: #2d3748;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", sans-serif;
+  background: var(--background);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  text-align: center;
+  padding: 40px 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 40px;
+}
+
+header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  color: var(--primary);
+}
+
+header p {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.back-link {
+  display: inline-block;
+  margin-top: 15px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: var(--primary-hover);
+}
+
+main {
+  flex: 1;
+}
+
+.search-section,
+.recent-section,
+.profile-section,
+.vouches-section {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 30px;
+  margin-bottom: 30px;
+  border: 1px solid var(--border);
+}
+
+h2 {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+h3 {
+  font-size: 1.4rem;
+  margin-bottom: 15px;
+  color: var(--text);
+}
+
+.search-form {
+  display: flex;
+  gap: 15px;
+  max-width: 600px;
+}
+
+.input {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--surface-light);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.vouches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.vouch-card {
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.vouch-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.vouch-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.vouch-by {
+  color: var(--success);
+}
+
+.vouch-arrow {
+  color: var(--text-muted);
+}
+
+.vouch-for {
+  color: var(--primary);
+}
+
+.vouch-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.vouch-date {
+  color: var(--text-muted);
+}
+
+.view-profile {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.view-profile:hover {
+  color: var(--primary-hover);
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.vouch-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-light);
+  padding: 20px 30px;
+  border-radius: 8px;
+  border: 2px solid var(--primary);
+}
+
+.count-number {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.count-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.profile-info {
+  padding: 15px;
+  background: var(--surface-light);
+  border-radius: 8px;
+  border-left: 4px solid var(--primary);
+}
+
+.vouches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.vouch-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: var(--surface-light);
+  border-radius: 8px;
+  border-left: 3px solid var(--success);
+  gap: 15px;
+}
+
+.vouch-content {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.voucher-name {
+  font-weight: 600;
+  color: var(--success);
+}
+
+.vouch-text {
+  color: var(--text-muted);
+}
+
+.vouch-date {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.loading,
+.error,
+.empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+footer {
+  text-align: center;
+  padding: 30px 0;
+  margin-top: 40px;
+  border-top: 2px solid var(--border);
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  header h1 {
+    font-size: 2rem;
+  }
+
+  .search-form {
+    flex-direction: column;
+  }
+
+  .vouches-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .vouch-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .vouch-date {
+    white-space: normal;
+  }
+}

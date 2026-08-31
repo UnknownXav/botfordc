@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Discord Bot Vouch System</h1>
+      <p>View user vouches and reputation</p>
+    </header>
+
+    <main>
+      <div class="search-section">
+        <h2>Search User Vouches</h2>
+        <div class="search-form">
+          <input 
+            type="text" 
+            id="userId" 
+            placeholder="Enter Discord User ID"
+            class="input"
+          >
+          <button onclick="searchUser()" class="btn btn-primary">Search</button>
+        </div>
+      </div>
+
+      <div class="recent-section">
+        <h2>Recent Vouches</h2>
+        <div id="vouchesContainer" class="vouches-grid">
+          <p class="loading">Loading vouches...</p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2025 Discord Bot MVP. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script>
+    async function loadRecentVouches() {
+      try {
+        const response = await fetch('/api/vouches');
+        const result = await response.json();
+
+        if (!result.success) {
+          document.getElementById('vouchesContainer').innerHTML = 
+            '<p class="error">Failed to load vouches</p>';
+          return;
+        }
+
+        const vouches = result.data.slice(0, 20);
+        
+        if (vouches.length === 0) {
+          document.getElementById('vouchesContainer').innerHTML = 
+            '<p class="empty">No vouches yet</p>';
+          return;
+        }
+
+        const vouchesHTML = vouches.map(vouch => {
+          const date = new Date(vouch.created_at).toLocaleString();
+          return `
+            <div class="vouch-card">
+              <div class="vouch-header">
+                <span class="vouch-by">${escapeHtml(vouch.voucher_tag)}</span>
+                <span class="vouch-arrow">→</span>
+                <span class="vouch-for">${escapeHtml(vouch.target_tag)}</span>
+              </div>
+              <div class="vouch-footer">
+                <span class="vouch-date">${date}</span>
+                <a href="/user/${vouch.target_id}" class="view-profile">View Profile</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('vouchesContainer').innerHTML = vouchesHTML;
+      } catch (error) {
+        console.error('Error loading vouches:', error);
+        document.getElementById('vouchesContainer').innerHTML = 
+          '<p class="error">Failed to load vouches</p>';
+      }
+    }
+
+    function searchUser() {
+      const userId = document.getElementById('userId').value.trim();
+      
+      if (!userId) {
+        alert('Please enter a User ID');
+        return;
+      }
+
+      window.location.href = `/user/${userId}`;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Load vouches on page load
+    loadRecentVouches();
+
+    // Allow Enter key to search
+    document.getElementById('userId').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchUser();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>User Vouch Profile</h1>
+      <a href="/" class="back-link">← Back to Home</a>
+    </header>
+
+    <main>
+      <div class="profile-section">
+        <div class="profile-header">
+          <h2><%= userTag %></h2>
+          <div class="vouch-count">
+            <span class="count-number"><%= count %></span>
+            <span class="count-label">Total Vouches</span>
+          </div>
+        </div>
+
+        <div class="profile-info">
+          <p><strong>User ID:</strong> <%= userId %></p>
+        </div>
+      </div>
+
+      <div class="vouches-section">
+        <h3>Vouch History</h3>
+        
+        <% if (vouches.length === 0) { %>
+          <p class="empty">This user has no vouches yet.</p>
+        <% } else { %>
+          <div class="vouches-list">
+            <% vouches.forEach(vouch => { %>
+              <div class="vouch-item">
+                <div class="vouch-content">
+                  <span class="voucher-name"><%= vouch.voucher_tag %></span>
+                  <span class="vouch-text">vouched for this user</span>
+                </div>
+                <div class="vouch-date">
+                  <%= new Date(vouch.created_at).toLocaleString() %>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2025 Discord Bot MVP. All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>
