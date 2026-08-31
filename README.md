@@ -76,6 +76,8 @@ Follow these steps to restrict channel access until members complete verificatio
 5. On the channels that should be gated, explicitly allow **View Channel** for the `Verified` role.
 6. New members automatically get the `Unverified` role on join and must click Verify in the verify channel to unlock the rest — this happens every time someone joins, even if they've verified before and left.
 
+> **Note**: Administrators should run `/verifysetup channel:#verify` once in the verification channel to post the permanent verification panel, rather than relying on members manually running `/verify`.
+
 ## Commands
 
 ### User Commands
@@ -86,6 +88,8 @@ Follow these steps to restrict channel access until members complete verificatio
 - `/vouches [@user]` - View vouch history (defaults to yourself)
 
 ### Admin Commands
+- `/verifysetup <channel>` - Post permanent verification panel in chosen channel
+- `/ticketsetup <channel>` - Post ticket creation panel in chosen channel
 - `/queue-admin` - Manage queue (complete/remove users)
 - `/welcome set <channel> <message>` - Configure welcome messages
 - `/welcome disable` - Disable welcome messages
