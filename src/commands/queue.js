@@ -46,11 +46,11 @@ export default {
     // try to link this order to an open ticket (if any)
     let ticketChannelId = null
     try {
-      const ticketForChannel = ticketModel.getByChannelId(channel.id)
+      const ticketForChannel = ticketModel.getByChannelId(interaction.guild.id, channel.id)
       if (ticketForChannel) ticketChannelId = ticketForChannel.channel_id
 
       if (!ticketChannelId) {
-        const buyerTickets = ticketModel.getByUserId(buyer.id) || []
+        const buyerTickets = ticketModel.getByUserId(interaction.guild.id, buyer.id) || []
         const openTicket = buyerTickets.find((t) => t.status === "open")
         if (openTicket) ticketChannelId = openTicket.channel_id
       }
@@ -79,7 +79,7 @@ export default {
     const sent = await channel.send({ embeds: [embed], components: [row] })
 
     try {
-      await ordersModel.create({
+      await ordersModel.create(interaction.guild.id, {
         buyer_id: buyer.id,
         buyer_tag: buyer.tag,
         amount,

@@ -18,12 +18,18 @@ app.use(express.static(join(__dirname, "public")))
 
 // Routes
 app.get("/", (req, res) => {
-  res.render("index", { title: "Discord Bot - Vouch System" })
+  res.status(404).send("Please specify a server ID to view vouches: /g/YOUR_GUILD_ID")
 })
 
-app.get("/api/vouches", (req, res) => {
+app.get("/g/:guildId", (req, res) => {
+  const { guildId } = req.params
+  res.render("index", { title: "Discord Bot - Vouch System", guildId })
+})
+
+app.get("/api/g/:guildId/vouches", (req, res) => {
   try {
-    const vouches = vouchModel.getAll()
+    const { guildId } = req.params
+    const vouches = vouchModel.getAll(guildId)
     res.json({ success: true, data: vouches })
   } catch (error) {
     console.error("Error fetching vouches:", error)
@@ -31,11 +37,11 @@ app.get("/api/vouches", (req, res) => {
   }
 })
 
-app.get("/api/vouches/:userId", (req, res) => {
+app.get("/api/g/:guildId/vouches/:userId", (req, res) => {
   try {
-    const { userId } = req.params
-    const vouches = vouchModel.getByUserId(userId)
-    const count = vouchModel.getCount(userId)
+    const { guildId, userId } = req.params
+    const vouches = vouchModel.getByUserId(guildId, userId)
+    const count = vouchModel.getCount(guildId, userId)
 
     res.json({
       success: true,
@@ -51,15 +57,16 @@ app.get("/api/vouches/:userId", (req, res) => {
   }
 })
 
-app.get("/user/:userId", (req, res) => {
+app.get("/g/:guildId/user/:userId", (req, res) => {
   try {
-    const { userId } = req.params
-    const vouches = vouchModel.getByUserId(userId)
-    const count = vouchModel.getCount(userId)
+    const { guildId, userId } = req.params
+    const vouches = vouchModel.getByUserId(guildId, userId)
+    const count = vouchModel.getCount(guildId, userId)
 
     if (vouches.length === 0) {
       res.render("user", {
         title: "User Vouches",
+        guildId,
         userId,
         userTag: "Unknown User",
         vouches: [],
@@ -72,6 +79,7 @@ app.get("/user/:userId", (req, res) => {
 
     res.render("user", {
       title: `${userTag} - Vouches`,
+      guildId,
       userId,
       userTag,
       vouches,

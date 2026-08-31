@@ -66,7 +66,7 @@ export default {
       const instructions = interaction.options.getString("instructions")
 
       try {
-        paymentModel.create(method, displayName, accountNumber, accountName, qrCodeUrl, instructions)
+        paymentModel.create(interaction.guild.id, method, displayName, accountNumber, accountName, qrCodeUrl, instructions)
         await interaction.reply({
           content: `Payment method **${displayName}** has been added!`,
           flags: MessageFlags.Ephemeral,
@@ -94,7 +94,7 @@ export default {
       if (instructions) updates.instructions = instructions
 
       try {
-        paymentModel.update(method, updates)
+        paymentModel.update(interaction.guild.id, method, updates)
         await interaction.reply({
           content: `Payment method **${method}** has been updated!`,
           flags: MessageFlags.Ephemeral,
@@ -109,7 +109,7 @@ export default {
       const method = interaction.options.getString("method").toLowerCase()
 
       try {
-        paymentModel.delete(method)
+        paymentModel.delete(interaction.guild.id, method)
         await interaction.reply({
           content: `Payment method **${method}** has been removed!`,
           flags: MessageFlags.Ephemeral,
@@ -121,7 +121,7 @@ export default {
         })
       }
     } else if (subcommand === "list") {
-      const methods = paymentModel.getAll()
+      const methods = paymentModel.getAll(interaction.guild.id)
 
       if (methods.length === 0) {
         await interaction.reply({

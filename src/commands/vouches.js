@@ -11,7 +11,7 @@ export default {
     const targetUser = interaction.options.getUser("user") || interaction.user
 
     try {
-      const vouches = vouchModel.getByUserId(targetUser.id)
+      const vouches = vouchModel.getByUserId(interaction.guild.id, targetUser.id)
 
       const embed = new EmbedBuilder().setTitle(`Vouches for ${targetUser.tag}`).setColor(0x5865f2).setTimestamp()
 

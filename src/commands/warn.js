@@ -15,10 +15,10 @@ export default {
 
     try {
       // Add warning to database
-      warningModel.add(user.id, user.tag, interaction.user.id, interaction.user.tag, reason)
+      warningModel.add(interaction.guild.id, user.id, user.tag, interaction.user.id, interaction.user.tag, reason)
 
       // Get warning count
-      const warningCount = warningModel.getCount(user.id)
+      const warningCount = warningModel.getCount(interaction.guild.id, user.id)
 
       const embed = new EmbedBuilder()
         .setTitle("User Warned")

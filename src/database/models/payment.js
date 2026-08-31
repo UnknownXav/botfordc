@@ -1,29 +1,65 @@
 import { getDb } from "../db.js"
 
 export const paymentModel = {
-  create(methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions) {
+  /**
+   * Create a payment method in a guild
+   * @param {string} guildId - The Discord guild ID
+   * @param {string} methodName - The payment method name
+   * @param {string} displayName - The display name
+   * @param {string} accountNumber - Account number
+   * @param {string} accountName - Account name
+   * @param {string} qrCodeUrl - QR code URL
+   * @param {string} instructions - Payment instructions
+   */
+  create(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions) {
     const db = getDb()
     const now = Date.now()
     const stmt = db.prepare(`
-      INSERT INTO payment_methods (method_name, display_name, account_number, account_name, qr_code_url, instructions, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO payment_methods (guild_id, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      ON CONFLICT(guild_id, method_name)
+      DO UPDATE SET
+        display_name = excluded.display_name,
+        account_number = excluded.account_number,
+        account_name = excluded.account_name,
+        qr_code_url = excluded.qr_code_url,
+        instructions = excluded.instructions,
+        enabled = 1,
+        updated_at = excluded.updated_at
     `)
-    return stmt.run(methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions, now, now)
+    return stmt.run(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions, now, now)
   },
 
-  getByMethod(methodName) {
+  /**
+   * Get a payment method by name in a guild
+   * @param {string} guildId - The Discord guild ID
+   * @param {string} methodName - The payment method name
+   * @returns {object|undefined} The payment method object
+   */
+  getByMethod(guildId, methodName) {
     const db = getDb()
-    const stmt = db.prepare("SELECT * FROM payment_methods WHERE method_name = ? AND enabled = 1")
-    return stmt.get(methodName)
+    const stmt = db.prepare("SELECT * FROM payment_methods WHERE guild_id = ? AND method_name = ? AND enabled = 1")
+    return stmt.get(guildId, methodName)
   },
 
-  getAll() {
+  /**
+   * Get all enabled payment methods for a guild
+   * @param {string} guildId - The Discord guild ID
+   * @returns {array} Array of payment method objects
+   */
+  getAll(guildId) {
     const db = getDb()
-    const stmt = db.prepare("SELECT * FROM payment_methods WHERE enabled = 1 ORDER BY id ASC")
-    return stmt.all()
+    const stmt = db.prepare("SELECT * FROM payment_methods WHERE guild_id = ? AND enabled = 1 ORDER BY id ASC")
+    return stmt.all(guildId)
   },
 
-  update(methodName, data) {
+  /**
+   * Update a payment method in a guild
+   * @param {string} guildId - The Discord guild ID
+   * @param {string} methodName - The payment method name
+   * @param {object} data - Update data (displayName, accountNumber, etc.)
+   */
+  update(guildId, methodName, data) {
     const db = getDb()
     const updates = []
     const values = []
@@ -51,15 +87,21 @@ export const paymentModel = {
 
     updates.push("updated_at = ?")
     values.push(Date.now())
+    values.push(guildId)
     values.push(methodName)
 
-    const stmt = db.prepare(`UPDATE payment_methods SET ${updates.join(", ")} WHERE method_name = ?`)
+    const stmt = db.prepare(`UPDATE payment_methods SET ${updates.join(", ")} WHERE guild_id = ? AND method_name = ?`)
     return stmt.run(...values)
   },
 
-  delete(methodName) {
+  /**
+   * Delete/disable a payment method in a guild
+   * @param {string} guildId - The Discord guild ID
+   * @param {string} methodName - The payment method name
+   */
+  delete(guildId, methodName) {
     const db = getDb()
-    const stmt = db.prepare("UPDATE payment_methods SET enabled = 0 WHERE method_name = ?")
-    return stmt.run(methodName)
+    const stmt = db.prepare("UPDATE payment_methods SET enabled = 0 WHERE guild_id = ? AND method_name = ?")
+    return stmt.run(guildId, methodName)
   },
 }

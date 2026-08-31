@@ -35,18 +35,18 @@ export default {
         })
       }
 
-      configModel.set("welcome_channel", channel.id)
-      configModel.set("verify_channel", verifyChannel.id)
-      configModel.set("rules_channel", rulesChannel.id)
+      configModel.set(interaction.guild.id, "welcome_channel", channel.id)
+      configModel.set(interaction.guild.id, "verify_channel", verifyChannel.id)
+      configModel.set(interaction.guild.id, "rules_channel", rulesChannel.id)
 
       await interaction.reply({
         content: `Welcome messages enabled in ${channel}!\nVerify: ${verifyChannel}\nRules: ${rulesChannel}`,
         ephemeral: true,
       })
     } else if (interaction.options.getSubcommand() === "disable") {
-      configModel.delete("welcome_channel")
-      configModel.delete("verify_channel")
-      configModel.delete("rules_channel")
+      configModel.delete(interaction.guild.id, "welcome_channel")
+      configModel.delete(interaction.guild.id, "verify_channel")
+      configModel.delete(interaction.guild.id, "rules_channel")
 
       await interaction.reply({
         content: "Welcome messages have been disabled.",

@@ -21,7 +21,10 @@ export async function initDb() {
   return db
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+import { fileURLToPath } from "url"
+import { resolve } from "path"
+
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   await initDb()
   process.exit(0)
 }

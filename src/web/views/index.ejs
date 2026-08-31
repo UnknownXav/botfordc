@@ -41,9 +41,11 @@
   </div>
 
   <script>
+    const guildId = "<%= guildId %>";
+
     async function loadRecentVouches() {
       try {
-        const response = await fetch('/api/vouches');
+        const response = await fetch(`/api/g/${guildId}/vouches`);
         const result = await response.json();
 
         if (!result.success) {
@@ -71,7 +73,7 @@
               </div>
               <div class="vouch-footer">
                 <span class="vouch-date">${date}</span>
-                <a href="/user/${vouch.target_id}" class="view-profile">View Profile</a>
+                <a href="/g/${guildId}/user/${vouch.target_id}" class="view-profile">View Profile</a>
               </div>
             </div>
           `;
@@ -93,7 +95,7 @@
         return;
       }
 
-      window.location.href = `/user/${userId}`;
+      window.location.href = `/g/${guildId}/user/${userId}`;
     }
 
     function escapeHtml(text) {

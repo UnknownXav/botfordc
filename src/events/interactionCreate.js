@@ -71,8 +71,6 @@ export default {
         await handleCopyButton(interaction)
       } else if (interaction.customId === "verify_start") {
         await handleVerifyStart(interaction)
-      } else if (interaction.customId === "verify_submit") {
-        await handleVerifySubmit(interaction)
       } else if (interaction.customId === "order_form_start") {
         await handleOrderFormStart(interaction)
       } else if (interaction.customId === "ticket_transcript") {
@@ -158,6 +156,7 @@ async function handleTicketModalSubmit(interaction) {
 
     // Create ticket in database
     const ticketNumber = ticketModel.create(
+      interaction.guild.id,
       interaction.user.id,
       interaction.user.tag,
       ticketType,
@@ -165,7 +164,7 @@ async function handleTicketModalSubmit(interaction) {
       ticketChannel.id,
     )
 
-    orderModel.setState(ticketChannel.id, interaction.user.id, "awaiting_start", {})
+    orderModel.setState(interaction.guild.id, ticketChannel.id, interaction.user.id, "awaiting_start", {})
 
     // Send initial message
     const embed = new EmbedBuilder()
@@ -197,7 +196,7 @@ async function handleTicketModalSubmit(interaction) {
 
 async function handleTicketClose(interaction) {
   // Prefer permissive lookup so staff can close tickets regardless of current status
-  const ticket = ticketModel.getByChannelIdAny(interaction.channel.id)
+  const ticket = ticketModel.getByChannelIdAny(interaction.guild.id, interaction.channel.id)
 
   if (!ticket) {
     await interaction.reply({ content: "This is not a valid ticket channel!", ephemeral: true })
@@ -234,7 +233,7 @@ async function handleTicketClose(interaction) {
   try {
     // mark ticket closed in the DB
     try {
-      ticketModel.setStatus(interaction.channel.id, "closed")
+      ticketModel.setStatus(interaction.guild.id, interaction.channel.id, "closed")
     } catch (err) {
       console.error("Failed to update ticket status on close:", err)
     }
@@ -257,6 +256,43 @@ async function handleTicketClose(interaction) {
   }
 
   return
+}
+
+async function handleVerifyStart(interaction) {
+  if (verificationModel.isVerified(interaction.guild.id, interaction.user.id)) {
+    await interaction.reply({
+      content: "You are already verified!",
+      ephemeral: true,
+    })
+    return
+  }
+
+  const num1 = Math.floor(Math.random() * 10) + 1
+  const num2 = Math.floor(Math.random() * 10) + 1
+  const answer = num1 + num2
+
+  if (!interaction.client.captchaAnswers) {
+    interaction.client.captchaAnswers = new Map()
+  }
+  interaction.client.captchaAnswers.set(interaction.user.id, answer)
+
+  const modal = new ModalBuilder()
+    .setCustomId("captcha_modal")
+    .setTitle("Verification Captcha")
+
+  const answerInput = new TextInputBuilder()
+    .setCustomId("captcha_answer")
+    .setLabel(`What is ${num1} + ${num2}?`)
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder("Enter the answer...")
+    .setRequired(true)
+    .setMinLength(1)
+    .setMaxLength(5)
+
+  const row = new ActionRowBuilder().addComponents(answerInput)
+  modal.addComponents(row)
+
+  await interaction.showModal(modal)
 }
 
 async function handleCaptchaModalSubmit(interaction) {
@@ -283,7 +319,7 @@ async function handleCaptchaModalSubmit(interaction) {
   interaction.client.captchaAnswers.delete(interaction.user.id)
 
   // Check if already verified
-  if (verificationModel.isVerified(interaction.user.id)) {
+  if (verificationModel.isVerified(interaction.guild.id, interaction.user.id)) {
     await interaction.reply({
       content: "You are already verified!",
       ephemeral: true,
@@ -292,7 +328,7 @@ async function handleCaptchaModalSubmit(interaction) {
   }
 
   // Add to verified users
-  verificationModel.add(interaction.user.id, interaction.user.tag)
+  verificationModel.add(interaction.guild.id, interaction.user.id, interaction.user.tag)
 
   // Try to add verified role (if exists)
   try {
@@ -401,7 +437,7 @@ async function handleTicketDelete(interaction) {
         if (!channel) return;
 
         // 1. Fetch Ticket Data
-        const ticket = ticketModel.getByChannelIdAny(channel.id);
+        const ticket = ticketModel.getByChannelIdAny(interaction.guild.id, channel.id);
 
         // 2. Fetch Messages for Transcript
         const messages = await channel.messages.fetch({ limit: 100 });
@@ -500,7 +536,7 @@ async function handleTicketOrderClick(interaction) {
   const user = interaction.user
 
   // Check if user already has an open ticket
-  const existingTicket = ticketModel.getByUserId(user.id).find((t) => t.status === "open")
+  const existingTicket = ticketModel.getByUserId(interaction.guild.id, user.id).find((t) => t.status === "open")
   if (existingTicket) {
     await interaction.reply({
       content: "You already have an open ticket! Please close it before creating a new one.",
@@ -543,9 +579,9 @@ async function handleTicketOrderClick(interaction) {
     })
 
     // Create ticket in database
-    const ticketNumber = ticketModel.create(user.id, user.tag, "order", "Order ticket", ticketChannel.id)
+    const ticketNumber = ticketModel.create(guild.id, user.id, user.tag, "order", "Order ticket", ticketChannel.id)
 
-    orderModel.setState(ticketChannel.id, user.id, "awaiting_start", {})
+    orderModel.setState(interaction.guild.id, ticketChannel.id, user.id, "awaiting_start", {})
 
     // Send initial message
     const embed = new EmbedBuilder()
@@ -576,7 +612,7 @@ async function handleTicketOrderClick(interaction) {
 }
 
 async function handleOrderConfirmYes(interaction) {
-  const orderState = orderModel.getState(interaction.channel.id)
+  const orderState = orderModel.getState(interaction.guild.id, interaction.channel.id)
   if (!orderState || orderState.user_id !== interaction.user.id) {
     await interaction.reply({
       content: "This is not your order!",
@@ -586,13 +622,13 @@ async function handleOrderConfirmYes(interaction) {
   }
 
   // Update state to confirmed
-  orderModel.setState(interaction.channel.id, interaction.user.id, "confirmed", orderState.data)
+  orderModel.setState(interaction.guild.id, interaction.channel.id, interaction.user.id, "confirmed", orderState.data)
 
   await interaction.reply(`Order Confirmed. Please type \`.pay\``)
 }
 
 async function handleOrderConfirmNo(interaction) {
-  const orderState = orderModel.getState(interaction.channel.id)
+  const orderState = orderModel.getState(interaction.guild.id, interaction.channel.id)
   if (!orderState || orderState.user_id !== interaction.user.id) {
     await interaction.reply({
       content: "This is not your order!",
@@ -602,7 +638,7 @@ async function handleOrderConfirmNo(interaction) {
   }
 
   // Reset to start
-  orderModel.setState(interaction.channel.id, interaction.user.id, "awaiting_start", {})
+  orderModel.setState(interaction.guild.id, interaction.channel.id, interaction.user.id, "awaiting_start", {})
 
   await interaction.reply(
     `**Order cancelled. Let's start over.**\n\nwhat item would you like to purchase?\n-# bobux , nboozt , decor, load , etc.`,
@@ -610,7 +646,7 @@ async function handleOrderConfirmNo(interaction) {
 }
 
 async function handlePaymentMethodSelect(interaction) {
-  const orderState = orderModel.getState(interaction.channel.id)
+  const orderState = orderModel.getState(interaction.guild.id, interaction.channel.id)
   if (!orderState || orderState.user_id !== interaction.user.id) {
     await interaction.reply({
       content: "This is not your order!",
@@ -621,7 +657,7 @@ async function handlePaymentMethodSelect(interaction) {
 
   const paymentMethod = interaction.customId.replace("payment_", "")
 
-  const paymentData = paymentModel.getByMethod(paymentMethod)
+  const paymentData = paymentModel.getByMethod(interaction.guild.id, paymentMethod)
 
   if (!paymentData) {
     await interaction.reply({
@@ -676,7 +712,7 @@ async function handleCopyButton(interaction) {
 
   const method = parts[1]
   const field = parts.slice(2).join("_")
-  const paymentData = paymentModel.getByMethod(method)
+  const paymentData = paymentModel.getByMethod(interaction.guild.id, method)
 
   if (!paymentData) {
     await interaction.reply({ content: `Payment method **${method}** is not configured.`, flags: MessageFlags.Ephemeral })
@@ -699,7 +735,7 @@ async function handleOrderFormStart(interaction) {
   const channelId = interaction.channel.id
   const userId = interaction.user.id
 
-  const orderState = orderModel.getState(channelId, userId)
+  const orderState = orderModel.getState(interaction.guild.id, channelId)
 
   if (!orderState || orderState.state !== "awaiting_start") {
     await interaction.reply({
@@ -710,7 +746,7 @@ async function handleOrderFormStart(interaction) {
   }
 
   // Update state to awaiting_item
-  orderModel.setState(channelId, userId, "awaiting_item", orderState.data)
+  orderModel.setState(interaction.guild.id, channelId, userId, "awaiting_item", orderState.data)
 
   // Ask first question
   await interaction.reply({
@@ -766,23 +802,23 @@ async function handleOrderStatusSelect(interaction) {
   await interaction.update({ embeds: [embed], components: interaction.message.components })
   // Persist status change to orders table and move ticket if linked
   try {
-    let order = ordersModel.getByMessage(interaction.channel.id, interaction.message.id)
+    let order = ordersModel.getByMessage(interaction.guild.id, interaction.channel.id, interaction.message.id)
     if (!order) {
-      order = ordersModel.getByMessageId(interaction.message.id)
+      order = ordersModel.getByMessageId(interaction.guild.id, interaction.message.id)
     }
     if (!order && buyerId) {
-      order = ordersModel.getLatestByBuyer(buyerId)
+      order = ordersModel.getLatestByBuyer(interaction.guild.id, buyerId)
     }
 
     if (!order) return
 
-    ordersModel.updateStatus(order.id, selected)
+    ordersModel.updateStatus(interaction.guild.id, order.id, selected)
 
     if (!order.ticket_channel_id) return
 
     // update ticket status in DB
     try {
-      ticketModel.setStatus(order.ticket_channel_id, selected)
+      ticketModel.setStatus(interaction.guild.id, order.ticket_channel_id, selected)
     } catch (e) {
       console.error("Failed to update ticket status:", e)
     }

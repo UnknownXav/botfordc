@@ -1,3 +1,4 @@
+import "dotenv/config"
 import { initDb } from "../src/database/init.js"
 import { paymentModel } from "../src/database/models/payment.js"
 
@@ -11,10 +12,9 @@ try {
   paymentModel.create(
     "gcash",
     "GCash Payment",
-    "09690617185",
-    "DENIELLE P.",
-    "https://cdn.discordapp.com/attachments/1450105322428432445/1450105646455328950/gcash.jpg?ex=6941539f&is=6940021f&hm=342a4a698977c0000e2100dfd25e32a7dfa106d20871302e780afdc38d0da43d&",
-
+    process.env.SEED_GCASH_NUMBER || "09123456789",
+    process.env.SEED_GCASH_NAME || "GCash Account",
+    process.env.SEED_GCASH_QR_URL || "https://example.com/gcash-qr.png",
   )
   console.log("✓ Added GCash payment method")
 } catch (error) {
@@ -26,9 +26,9 @@ try {
   paymentModel.create(
     "maya",
     "Maya Payment",
-    "0962652755", // Account Number
-    "JAMAICA CABALLERO", // Account Name
-    "https://cdn.discordapp.com/attachments/1450105322428432445/1450105645868122183/maya.jpg?ex=6941539f&is=6940021f&hm=a6ae8cccc99963da241d99089f61921b600356ab8fefe02dd5d88de2c119d1f4&",
+    process.env.SEED_MAYA_NUMBER || "09123456789",
+    process.env.SEED_MAYA_NAME || "Maya Account",
+    process.env.SEED_MAYA_QR_URL || "https://example.com/maya-qr.png",
     "Please send payment to this Maya number."
   )
   console.log("✓ Added Maya payment method")
@@ -36,8 +36,8 @@ try {
   console.log("Maya already exists. Updating details...", error.message)
   try {
     paymentModel.update("maya", {
-      accountNumber: "09626527755",
-      accountName: "JAMAICA CABALLERO",
+      accountNumber: process.env.SEED_MAYA_NUMBER || "09123456789",
+      accountName: process.env.SEED_MAYA_NAME || "Maya Account",
       instructions: "Please send payment to this Maya number."
     })
     console.log("✓ Updated Maya payment method")

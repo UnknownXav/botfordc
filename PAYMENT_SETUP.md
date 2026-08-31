@@ -20,8 +20,8 @@ Use the `/paymentsetup` command in Discord (Admin only):
 /paymentsetup add 
   method: gcash
   display_name: GCash Payment
-  account_number: 09690617185
-  account_name: DENIELLE P.
+  account_number: 09123456789
+  account_name: John Doe
   qr_code_url: https://your-image-url.com/qr.png
   instructions: Please send screenshot after payment
 \`\`\`

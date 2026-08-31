@@ -19,22 +19,20 @@ for (const file of commandFiles) {
 const rest = new REST({ version: "10" }).setToken(config.token)
 
 try {
-  console.log(`Started refreshing ${commands.length} application (/) commands.`)
-  // Allow optional CLI guild id override: `node src/deploy-commands.js <GUILD_ID>`
+  console.log(`Started refreshing ${commands.length} application (/) commands globally.`)
+  // Note: CLI guild ID argument is now vestigial since commands are registered globally
+  // using Routes.applicationCommands(clientId) instead of per-guild deployment.
   const cliGuildId = process.argv[2]
-  const guildIdToUse = cliGuildId || config.guildId
-
-  if (!guildIdToUse) {
-    console.error("No guild id provided. Pass a guild id as an argument or set GUILD_ID in env/config.")
-    process.exit(1)
+  if (cliGuildId) {
+    console.log(`[Note] CLI guild ID "${cliGuildId}" supplied, but deployment is now global across all servers.`)
   }
 
-  console.log(`Registering commands to guild: ${guildIdToUse}`)
-  const data = await rest.put(Routes.applicationGuildCommands(config.clientId, guildIdToUse), {
+  console.log("Registering commands globally...")
+  const data = await rest.put(Routes.applicationCommands(config.clientId), {
     body: commands,
   })
 
-  console.log(`Successfully reloaded ${data.length} application (/) commands for guild ${guildIdToUse}.`)
+  console.log(`Successfully reloaded ${data.length} global application (/) commands.`)
 } catch (error) {
   console.error(error)
 }

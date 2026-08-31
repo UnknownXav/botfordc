@@ -8,12 +8,22 @@ export default {
     .addSubcommand((sc) =>
       sc
         .setName("setup")
-        .setDescription("Set the category to lock/unlock when shop opens/closes")
+        .setDescription("Set the category to lock/unlock and announcement channels")
         .addChannelOption((opt) =>
           opt.setName("category")
             .setDescription("The category to manage")
             .addChannelTypes(ChannelType.GuildCategory)
             .setRequired(true)
+        )
+        .addChannelOption((opt) =>
+          opt.setName("rules_channel")
+            .setDescription("Rules channel to mention")
+            .setRequired(false)
+        )
+        .addChannelOption((opt) =>
+          opt.setName("inquiries_channel")
+            .setDescription("Inquiries channel to mention")
+            .setRequired(false)
         ),
     )
     .addSubcommand((sc) =>
@@ -36,8 +46,23 @@ export default {
     // Handle Setup
     if (sub === "setup") {
       const category = interaction.options.getChannel("category")
-      configModel.set("shop_category", category.id)
-      await interaction.reply({ content: `Shop category set to **${category.name}**. It will be locked/unlocked via /shop close and /shop open.`, ephemeral: true })
+      const rulesChannel = interaction.options.getChannel("rules_channel")
+      const inquiriesChannel = interaction.options.getChannel("inquiries_channel")
+
+      configModel.set(interaction.guild.id, "shop_category", category.id)
+      if (rulesChannel) {
+        configModel.set(interaction.guild.id, "rules_channel", rulesChannel.id)
+      }
+      if (inquiriesChannel) {
+        configModel.set(interaction.guild.id, "inquiries_channel", inquiriesChannel.id)
+      }
+
+      let replyContent = `Shop category set to **${category.name}**.`
+      if (rulesChannel) replyContent += ` Rules channel: <#${rulesChannel.id}>.`
+      if (inquiriesChannel) replyContent += ` Inquiries channel: <#${inquiriesChannel.id}>.`
+      replyContent += ` It will be locked/unlocked via /shop close and /shop open.`
+
+      await interaction.reply({ content: replyContent, ephemeral: true })
       return
     }
 
@@ -54,13 +79,19 @@ export default {
       return
     }
 
+    const rulesChannelId = configModel.get(interaction.guild.id, "rules_channel")
+    const inquiriesChannelId = configModel.get(interaction.guild.id, "inquiries_channel")
+
+    const rulesMention = rulesChannelId ? `<#${rulesChannelId}>` : "#rules"
+    const inquiriesMention = inquiriesChannelId ? `<#${inquiriesChannelId}>` : "#inquiries"
+
     const headerOpen = `## shop is now open ! ʚɞ
       @everyone 
 
-      — feel free to ask anytime in  #inquiries
+      — feel free to ask anytime in ${inquiriesMention}
       — always check #daily sales
       — you may create a #ticket here if you’d like to order
-      — read <#1368119390662561824>rules so everything’s clear`
+      — read ${rulesMention} so everything’s clear`
 
     const headerClose = `## shop is now closed ! ʚɞ
       @everyone 
@@ -71,7 +102,7 @@ export default {
       — inquiries are still welcome, but responses may be slower`
 
     // Manage Category Permissions
-    const shopCategoryId = configModel.get("shop_category")
+    const shopCategoryId = configModel.get(interaction.guild.id, "shop_category")
     let categoryActionMsg = ""
 
     if (shopCategoryId) {
@@ -116,10 +147,9 @@ export default {
       // delete any prior close announcement from the bot in this channel so they take turns
       try {
         const fetched = await target.messages.fetch({ limit: 50 })
-        const otherHeader = headerClose // The close message link
         for (const msg of fetched.values()) {
           if (msg.id === sent.id) continue
-          if (msg.author?.id === interaction.client.user.id && msg.content && msg.content.includes(otherHeader)) {
+          if (msg.author?.id === interaction.client.user.id && msg.content && msg.content.includes("## shop is now closed !")) {
             try { await msg.delete() } catch (e) { /* ignore deletion errors */ }
           }
         }
@@ -140,10 +170,9 @@ export default {
       // delete any prior open announcement from the bot in this channel so they take turns
       try {
         const fetched = await target.messages.fetch({ limit: 50 })
-        const otherHeader = headerOpen // The open message link
         for (const msg of fetched.values()) {
           if (msg.id === sent.id) continue
-          if (msg.author?.id === interaction.client.user.id && msg.content && msg.content.includes(otherHeader)) {
+          if (msg.author?.id === interaction.client.user.id && msg.content && msg.content.includes("## shop is now open !")) {
             try { await msg.delete() } catch (e) { /* ignore deletion errors */ }
           }
         }

@@ -30,10 +30,10 @@ export default {
 
     try {
       // Add vouch to database
-      vouchModel.add(interaction.user.id, interaction.user.tag, targetUser.id, targetUser.tag)
+      vouchModel.add(interaction.guild.id, interaction.user.id, interaction.user.tag, targetUser.id, targetUser.tag)
 
       // Get total vouch count
-      const vouchCount = vouchModel.getCount(targetUser.id)
+      const vouchCount = vouchModel.getCount(interaction.guild.id, targetUser.id)
 
       const embed = new EmbedBuilder()
         .setTitle("Vouch Added!")

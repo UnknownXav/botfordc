@@ -3,9 +3,9 @@ import { configModel } from "../database/models/config.js"
 export default {
   name: "guildMemberAdd",
   async execute(member) {
-    const channelId = configModel.get("welcome_channel")
-    const verifyChannelId = configModel.get("verify_channel")
-    const rulesChannelId = configModel.get("rules_channel")
+    const channelId = configModel.get(member.guild.id, "welcome_channel")
+    const verifyChannelId = configModel.get(member.guild.id, "verify_channel")
+    const rulesChannelId = configModel.get(member.guild.id, "rules_channel")
 
     if (!channelId || !verifyChannelId || !rulesChannelId) return
 

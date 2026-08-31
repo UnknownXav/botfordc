@@ -26,14 +26,14 @@ export default {
       const stickyMsg = await interaction.channel.send(message)
 
       // Store in database
-      configModel.set(`sticky_${channelId}`, JSON.stringify({ messageId: stickyMsg.id, content: message }))
+      configModel.set(interaction.guild.id, `sticky_${channelId}`, JSON.stringify({ messageId: stickyMsg.id, content: message }))
 
       await interaction.reply({
         content: "Sticky message has been set!",
         ephemeral: true,
       })
     } else if (interaction.options.getSubcommand() === "remove") {
-      const stickyData = configModel.get(`sticky_${channelId}`)
+      const stickyData = configModel.get(interaction.guild.id, `sticky_${channelId}`)
 
       if (!stickyData) {
         await interaction.reply({
@@ -44,7 +44,7 @@ export default {
       }
 
       // Delete from database
-      configModel.delete(`sticky_${channelId}`)
+      configModel.delete(interaction.guild.id, `sticky_${channelId}`)
 
       // Try to delete the message
       try {
