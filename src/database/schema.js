@@ -18,7 +18,8 @@ export const createTables = (db) => {
       channel_id TEXT UNIQUE,
       status TEXT DEFAULT 'open',
       created_at INTEGER NOT NULL,
-      closed_at INTEGER
+      closed_at INTEGER,
+      UNIQUE(guild_id, ticket_number)
     )
   `)
 
@@ -146,8 +147,77 @@ function migrateTables(db) {
     return !!result
   }
 
-  // Migrate simple tables: tickets, vouches, warnings, order_states, orders
-  const simpleTables = ["tickets", "vouches", "warnings", "order_states", "orders"]
+  const needsTicketsRebuild = (db) => {
+    if (!tableExists("tickets")) return false
+
+    const tableMaster = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tickets'").get()
+    const tableSql = tableMaster ? tableMaster.sql : ""
+
+    const hasCompositeUnique = /UNIQUE\s*\(\s*guild_id\s*,\s*ticket_number\s*\)/i.test(tableSql) ||
+                               /UNIQUE\s*\(\s*ticket_number\s*,\s*guild_id\s*\)/i.test(tableSql)
+
+    const hasSingleColumnUniqueInSql = /ticket_number\s+INTEGER\s+UNIQUE/i.test(tableSql) ||
+                                      /UNIQUE\s*\(\s*ticket_number\s*\)/i.test(tableSql)
+
+    try {
+      const indexList = db.pragma("index_list('tickets')")
+      for (const idx of indexList) {
+        if (idx.unique) {
+          const indexInfo = db.pragma(`index_info('${idx.name}')`)
+          if (indexInfo.length === 1 && indexInfo[0].name === "ticket_number") {
+            return true
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error inspecting tickets indexes:", e)
+    }
+
+    if (hasSingleColumnUniqueInSql) return true
+    if (!hasCompositeUnique) return true
+
+    return false
+  }
+
+  // Migrate tickets table
+  if (tableExists("tickets") && needsTicketsRebuild(db)) {
+    console.log("Migrating table tickets: rebuilding with composite UNIQUE(guild_id, ticket_number) constraint...")
+    db.exec("ALTER TABLE tickets RENAME TO _old_tickets")
+    db.exec(`
+      CREATE TABLE tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        ticket_number INTEGER NOT NULL,
+        user_id TEXT NOT NULL,
+        user_tag TEXT NOT NULL,
+        type TEXT NOT NULL,
+        description TEXT,
+        channel_id TEXT UNIQUE,
+        status TEXT DEFAULT 'open',
+        created_at INTEGER NOT NULL,
+        closed_at INTEGER,
+        UNIQUE(guild_id, ticket_number)
+      )
+    `)
+    const oldHasGuildId = checkColumn("_old_tickets", "guild_id")
+    if (oldHasGuildId) {
+      db.prepare(`
+        INSERT OR IGNORE INTO tickets (id, guild_id, ticket_number, user_id, user_tag, type, description, channel_id, status, created_at, closed_at)
+        SELECT id, COALESCE(guild_id, ?), ticket_number, user_id, user_tag, type, description, channel_id, status, created_at, closed_at FROM _old_tickets
+      `).run(fallbackGuildId)
+    } else {
+      db.prepare(`
+        INSERT OR IGNORE INTO tickets (id, guild_id, ticket_number, user_id, user_tag, type, description, channel_id, status, created_at, closed_at)
+        SELECT id, ?, ticket_number, user_id, user_tag, type, description, channel_id, status, created_at, closed_at FROM _old_tickets
+      `).run(fallbackGuildId)
+    }
+    db.exec("DROP TABLE _old_tickets")
+  } else if (tableExists("tickets")) {
+    console.log("tickets table already has composite constraint, skipping")
+  }
+
+  // Migrate simple tables: vouches, warnings, order_states, orders
+  const simpleTables = ["vouches", "warnings", "order_states", "orders"]
   for (const table of simpleTables) {
     if (tableExists(table) && !checkColumn(table, "guild_id")) {
       console.log(`Migrating table ${table}: adding guild_id column...`)
