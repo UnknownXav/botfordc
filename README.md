@@ -65,6 +65,17 @@ npm start
 
 The bot will start and the web interface will be available at `http://localhost:3000`
 
+## Setting up verification gating
+
+Follow these steps to restrict channel access until members complete verification:
+
+1. Create a role named exactly `Unverified` with no special permissions.
+2. Create a role named exactly `Verified` with no special permissions.
+3. On `@everyone`'s server-wide permissions (or per-channel), deny **View Channel** for most channels.
+4. On the verify channel (and welcome/rules channels if desired), explicitly allow **View Channel** for the `Unverified` role.
+5. On the channels that should be gated, explicitly allow **View Channel** for the `Verified` role.
+6. New members automatically get the `Unverified` role on join and must click Verify in the verify channel to unlock the rest — this happens every time someone joins, even if they've verified before and left.
+
 ## Commands
 
 ### User Commands

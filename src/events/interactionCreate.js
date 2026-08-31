@@ -340,6 +340,16 @@ async function handleCaptchaModalSubmit(interaction) {
     console.error("Error adding verified role:", error)
   }
 
+  // Try to remove unverified role (if exists and member has it)
+  try {
+    const unverifiedRole = interaction.guild.roles.cache.find((role) => role.name.toLowerCase() === "unverified")
+    if (unverifiedRole && interaction.member.roles.cache.has(unverifiedRole.id)) {
+      await interaction.member.roles.remove(unverifiedRole)
+    }
+  } catch (error) {
+    console.error("Error removing unverified role:", error)
+  }
+
   const embed = new EmbedBuilder()
     .setTitle("Verification Successful!")
     .setDescription("You have been successfully verified!")

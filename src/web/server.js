@@ -94,7 +94,15 @@ app.get("/g/:guildId/user/:userId", (req, res) => {
 export function startWebServer(client) {
   app.locals.client = client
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     console.log(`Web server running on ${config.webUrl}`)
+  })
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`[Web Server Error] Port ${config.port} is already in use. Clean up the process or set PORT in .env.`)
+    } else {
+      console.error("[Web Server Error]", err)
+    }
   })
 }

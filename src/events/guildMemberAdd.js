@@ -23,5 +23,19 @@ export default {
     } catch (error) {
       console.error("Error sending welcome message:", error)
     }
+
+    // Try to assign "Unverified" role (if exists)
+    try {
+      const unverifiedRole = member.guild.roles.cache.find(
+        (role) => role.name.toLowerCase() === "unverified"
+      )
+      if (unverifiedRole) {
+        await member.roles.add(unverifiedRole)
+      } else {
+        console.warn(`[guildMemberAdd] "Unverified" role not found in guild ${member.guild.id}. Skipping role assignment.`)
+      }
+    } catch (error) {
+      console.error(`[guildMemberAdd] Error assigning "Unverified" role to member ${member.id}:`, error)
+    }
   },
 }
