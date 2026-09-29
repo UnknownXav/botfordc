@@ -18,6 +18,7 @@ import {
   AttachmentBuilder,
 } from "discord.js"
 import { configModel } from "../database/models/config.js"
+import { buildAmountQr } from "../utils/qrph.js"
 
 export default {
   name: "interactionCreate",
@@ -711,16 +712,39 @@ async function handlePaymentMethodSelect(interaction) {
   if (paymentData.account_name) {
     description += `**${paymentData.account_name}**\n`
   }
+
+  const price = orderState.data?.price
+
+  // Try to generate dynamic amount QR if qr_payload and price are both available
+  let dynamicQrAttachment = null
+  if (paymentData.qr_payload && price) {
+    try {
+      const qrBuffer = await buildAmountQr(paymentData.qr_payload, price)
+      dynamicQrAttachment = new AttachmentBuilder(qrBuffer, { name: "qr.png" })
+      embed.setImage("attachment://qr.png")
+      description += `\n**Amount due:** PHP${Number(price).toFixed(2)}`
+    } catch (err) {
+      console.error("Failed to generate dynamic amount QR:", err)
+      // Fall back to static QR below
+    }
+  }
+
+  // Fall back to static QR if dynamic QR was not generated
+  if (!dynamicQrAttachment) {
+    if (paymentData.qr_code_url) {
+      embed.setImage(paymentData.qr_code_url)
+    }
+    if (!price) {
+      description += "\n*Staff will confirm the exact amount with you.*"
+    }
+  }
+
   if (paymentData.instructions) {
     description += `\n${paymentData.instructions}`
   }
 
   if (description) {
     embed.setDescription(description)
-  }
-
-  if (paymentData.qr_code_url) {
-    embed.setImage(paymentData.qr_code_url)
   }
 
   const components = []
@@ -734,7 +758,12 @@ async function handlePaymentMethodSelect(interaction) {
     components.push(button)
   }
 
-  await interaction.reply({ embeds: [embed], components })
+  const replyPayload = { embeds: [embed], components }
+  if (dynamicQrAttachment) {
+    replyPayload.files = [dynamicQrAttachment]
+  }
+
+  await interaction.reply(replyPayload)
 }
 
 async function handleCopyButton(interaction) {

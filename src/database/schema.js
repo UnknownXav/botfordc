@@ -114,6 +114,7 @@ export const createTables = (db) => {
       account_number TEXT,
       account_name TEXT,
       qr_code_url TEXT,
+      qr_payload TEXT,
       instructions TEXT,
       enabled INTEGER DEFAULT 1,
       created_at INTEGER NOT NULL,
@@ -279,6 +280,7 @@ function migrateTables(db) {
         account_number TEXT,
         account_name TEXT,
         qr_code_url TEXT,
+        qr_payload TEXT,
         instructions TEXT,
         enabled INTEGER DEFAULT 1,
         created_at INTEGER NOT NULL,
@@ -286,10 +288,23 @@ function migrateTables(db) {
         UNIQUE(guild_id, method_name)
       )
     `)
-    db.prepare(`
-      INSERT OR IGNORE INTO payment_methods (id, guild_id, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at)
-      SELECT id, ?, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at FROM _old_payment_methods
-    `).run(fallbackGuildId)
+    const oldHasQrPayload = checkColumn("_old_payment_methods", "qr_payload")
+    if (oldHasQrPayload) {
+      db.prepare(`
+        INSERT OR IGNORE INTO payment_methods (id, guild_id, method_name, display_name, account_number, account_name, qr_code_url, qr_payload, instructions, enabled, created_at, updated_at)
+        SELECT id, ?, method_name, display_name, account_number, account_name, qr_code_url, qr_payload, instructions, enabled, created_at, updated_at FROM _old_payment_methods
+      `).run(fallbackGuildId)
+    } else {
+      db.prepare(`
+        INSERT OR IGNORE INTO payment_methods (id, guild_id, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at)
+        SELECT id, ?, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at FROM _old_payment_methods
+      `).run(fallbackGuildId)
+    }
     db.exec("DROP TABLE _old_payment_methods")
+  }
+
+  if (tableExists("payment_methods") && !checkColumn("payment_methods", "qr_payload")) {
+    console.log("Migrating table payment_methods: adding qr_payload column...")
+    db.exec("ALTER TABLE payment_methods ADD COLUMN qr_payload TEXT")
   }
 }

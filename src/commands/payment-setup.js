@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from "discord.js"
 import { paymentModel } from "../database/models/payment.js"
+import { isValidQrPayload } from "../utils/qrph.js"
 
 export default {
   data: new SlashCommandBuilder()
@@ -22,6 +23,12 @@ export default {
           option.setName("qr_code_url").setDescription("QR code image URL").setRequired(false),
         )
         .addStringOption((option) =>
+          option
+            .setName("qr_payload")
+            .setDescription("Decoded text of your static QR Ph code, starts with 000201")
+            .setRequired(false),
+        )
+        .addStringOption((option) =>
           option.setName("instructions").setDescription("Payment instructions").setRequired(false),
         ),
     )
@@ -39,6 +46,12 @@ export default {
         .addStringOption((option) => option.setName("account_name").setDescription("Account name").setRequired(false))
         .addStringOption((option) =>
           option.setName("qr_code_url").setDescription("QR code image URL").setRequired(false),
+        )
+        .addStringOption((option) =>
+          option
+            .setName("qr_payload")
+            .setDescription("Decoded text of your static QR Ph code, starts with 000201")
+            .setRequired(false),
         )
         .addStringOption((option) =>
           option.setName("instructions").setDescription("Payment instructions").setRequired(false),
@@ -63,10 +76,19 @@ export default {
       const accountNumber = interaction.options.getString("account_number")
       const accountName = interaction.options.getString("account_name")
       const qrCodeUrl = interaction.options.getString("qr_code_url")
+      const qrPayload = interaction.options.getString("qr_payload")
       const instructions = interaction.options.getString("instructions")
 
+      if (qrPayload && !isValidQrPayload(qrPayload)) {
+        await interaction.reply({
+          content: "Invalid QR Ph payload. It must start with 000201 and have a valid CRC.",
+          flags: MessageFlags.Ephemeral,
+        })
+        return
+      }
+
       try {
-        paymentModel.create(interaction.guild.id, method, displayName, accountNumber, accountName, qrCodeUrl, instructions)
+        paymentModel.create(interaction.guild.id, method, displayName, accountNumber, accountName, qrCodeUrl, instructions, qrPayload)
         await interaction.reply({
           content: `Payment method **${displayName}** has been added!`,
           flags: MessageFlags.Ephemeral,
@@ -85,6 +107,7 @@ export default {
       const accountNumber = interaction.options.getString("account_number")
       const accountName = interaction.options.getString("account_name")
       const qrCodeUrl = interaction.options.getString("qr_code_url")
+      const qrPayload = interaction.options.getString("qr_payload")
       const instructions = interaction.options.getString("instructions")
 
       if (displayName) updates.displayName = displayName
@@ -92,6 +115,17 @@ export default {
       if (accountName) updates.accountName = accountName
       if (qrCodeUrl) updates.qrCodeUrl = qrCodeUrl
       if (instructions) updates.instructions = instructions
+
+      if (qrPayload !== null) {
+        if (!isValidQrPayload(qrPayload)) {
+          await interaction.reply({
+            content: "Invalid QR Ph payload. It must start with 000201 and have a valid CRC.",
+            flags: MessageFlags.Ephemeral,
+          })
+          return
+        }
+        updates.qrPayload = qrPayload
+      }
 
       try {
         paymentModel.update(interaction.guild.id, method, updates)
@@ -138,6 +172,7 @@ export default {
         if (method.account_number) value += `**Account Number:** ${method.account_number}\n`
         if (method.account_name) value += `**Account Name:** ${method.account_name}\n`
         if (method.qr_code_url) value += `**QR Code:** Set\n`
+        if (method.qr_payload) value += `**Dynamic QR:** Set\n`
         if (method.instructions) value += `**Instructions:** ${method.instructions}\n`
 
         embed.addFields({ name: method.method_name, value })

@@ -90,6 +90,8 @@ Follow these steps to restrict channel access until members complete verificatio
 ### Admin Commands
 - `/verifysetup <channel>` - Post permanent verification panel in chosen channel
 - `/ticketsetup <channel>` - Post ticket creation panel in chosen channel
+- `/orderprice <amount>` - Set exact price for an order ticket (Staff/Admin)
+- `/paymentsetup <add|edit|remove|list>` - Configure server payment methods and QR Ph payloads
 - `/queue-admin` - Manage queue (complete/remove users)
 - `/welcome set <channel> <message>` - Configure welcome messages
 - `/welcome disable` - Disable welcome messages
@@ -99,6 +101,21 @@ Follow these steps to restrict channel access until members complete verificatio
 - `/kick @user [reason]` - Kick a user
 - `/warn @user [reason]` - Warn a user
 - `/purge <amount>` - Delete bulk messages (1-100)
+
+## Exact-amount QR (Dynamic QR Ph / InstaPay)
+
+The bot supports generating dynamic QR Ph codes with the exact order amount embedded:
+
+1. **Get your static QR Ph string**:
+   - Open your GCash or Maya app and generate your personal "Receive Money" QR.
+   - Scan the QR image with any generic QR scanner app/tool and copy the raw decoded text (starts with `000201`).
+2. **Configure dynamic QR in the bot**:
+   - Run `/paymentsetup edit method:<gcash|maya> qr_payload:<raw_decoded_text>`.
+   - The bot validates the EMVCo structure and CRC before saving.
+3. **Set order amount**:
+   - In any active order ticket, staff can run `/orderprice amount:<price>` (e.g. `/orderprice amount:250`).
+4. **Buyer payment**:
+   - When the buyer types `.pay` and selects the payment method, the bot generates a dynamic QR code pre-filled with the exact amount. If no price is set or dynamic QR is not configured, it safely falls back to the static QR image.
 
 ## Web Interface
 

@@ -10,24 +10,26 @@ export const paymentModel = {
    * @param {string} accountName - Account name
    * @param {string} qrCodeUrl - QR code URL
    * @param {string} instructions - Payment instructions
+   * @param {string|null} qrPayload - Static QR Ph payload
    */
-  create(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions) {
+  create(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions, qrPayload = null) {
     const db = getDb()
     const now = Date.now()
     const stmt = db.prepare(`
-      INSERT INTO payment_methods (guild_id, method_name, display_name, account_number, account_name, qr_code_url, instructions, enabled, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO payment_methods (guild_id, method_name, display_name, account_number, account_name, qr_code_url, qr_payload, instructions, enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
       ON CONFLICT(guild_id, method_name)
       DO UPDATE SET
         display_name = excluded.display_name,
         account_number = excluded.account_number,
         account_name = excluded.account_name,
         qr_code_url = excluded.qr_code_url,
+        qr_payload = excluded.qr_payload,
         instructions = excluded.instructions,
         enabled = 1,
         updated_at = excluded.updated_at
     `)
-    return stmt.run(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, instructions, now, now)
+    return stmt.run(guildId, methodName, displayName, accountNumber, accountName, qrCodeUrl, qrPayload, instructions, now, now)
   },
 
   /**
@@ -79,6 +81,10 @@ export const paymentModel = {
     if (data.qrCodeUrl !== undefined) {
       updates.push("qr_code_url = ?")
       values.push(data.qrCodeUrl)
+    }
+    if (data.qrPayload !== undefined) {
+      updates.push("qr_payload = ?")
+      values.push(data.qrPayload)
     }
     if (data.instructions !== undefined) {
       updates.push("instructions = ?")
