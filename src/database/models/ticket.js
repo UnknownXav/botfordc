@@ -12,22 +12,32 @@ export const ticketModel = {
    * @returns {number} The ticket number
    */
   create(guildId, userId, userTag, type, description, channelId) {
-    // Use guild-scoped counter key
-    const counterStmt = db.prepare("SELECT value FROM config WHERE guild_id = ? AND key = 'ticket_counter'")
-    const counterResult = counterStmt.get(guildId)
-    const counter = counterResult ? Number.parseInt(counterResult.value) : 0
-    const newCounter = counter + 1
+    const createTx = db.transaction(() => {
+      const counterStmt = db.prepare("SELECT value FROM config WHERE guild_id = ? AND key = 'ticket_counter'")
+      const counterResult = counterStmt.get(guildId)
+      const stored = counterResult ? Number.parseInt(counterResult.value, 10) || 0 : 0
 
-    const updateCounter = db.prepare("UPDATE config SET value = ? WHERE guild_id = ? AND key = 'ticket_counter'")
-    updateCounter.run(newCounter.toString(), guildId)
+      const maxStmt = db.prepare("SELECT COALESCE(MAX(ticket_number), 0) AS maxNum FROM tickets WHERE guild_id = ?")
+      const maxTicketNumber = maxStmt.get(guildId)?.maxNum || 0
 
-    const stmt = db.prepare(`
-      INSERT INTO tickets (guild_id, ticket_number, user_id, user_tag, type, description, channel_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
+      const newCounter = Math.max(stored, maxTicketNumber) + 1
 
-    stmt.run(guildId, newCounter, userId, userTag, type, description, channelId, Date.now())
-    return newCounter
+      const upsertCounter = db.prepare(`
+        INSERT INTO config (guild_id, key, value) VALUES (?, 'ticket_counter', ?)
+        ON CONFLICT(guild_id, key) DO UPDATE SET value = excluded.value
+      `)
+      upsertCounter.run(guildId, newCounter.toString())
+
+      const stmt = db.prepare(`
+        INSERT INTO tickets (guild_id, ticket_number, user_id, user_tag, type, description, channel_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+      stmt.run(guildId, newCounter, userId, userTag, type, description, channelId, Date.now())
+
+      return newCounter
+    })
+
+    return createTx()
   },
 
   /**

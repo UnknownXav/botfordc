@@ -17,6 +17,10 @@ const client = new Client({
   ],
 })
 
+client.on("error", (err) => console.error("Discord client error:", err))
+process.on("unhandledRejection", (err) => console.error("Unhandled rejection:", err))
+process.on("uncaughtException", (err) => console.error("Uncaught exception:", err))
+
 // Load commands
 client.commands = new Collection()
 const commandsPath = join(__dirname, "commands")

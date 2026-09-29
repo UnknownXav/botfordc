@@ -15,76 +15,93 @@ import {
   ChannelType,
   PermissionFlagsBits,
   MessageFlags, // Add this import for MessageFlags
+  AttachmentBuilder,
 } from "discord.js"
 import { configModel } from "../database/models/config.js"
 
 export default {
   name: "interactionCreate",
   async execute(interaction) {
-    // Handle slash commands
-    if (interaction.isChatInputCommand()) {
-      const command = interaction.client.commands.get(interaction.commandName)
+    try {
+      // Handle slash commands
+      if (interaction.isChatInputCommand()) {
+        const command = interaction.client.commands.get(interaction.commandName)
 
-      if (!command) {
-        console.error(`No command matching ${interaction.commandName} was found.`)
-        return
+        if (!command) {
+          console.error(`No command matching ${interaction.commandName} was found.`)
+          return
+        }
+
+        try {
+          await command.execute(interaction)
+        } catch (error) {
+          console.error(`Error executing ${interaction.commandName}:`, error)
+          const replyMethod = interaction.replied || interaction.deferred ? "followUp" : "reply"
+          await interaction[replyMethod]({
+            content: "There was an error while executing this command!",
+            ephemeral: true,
+          })
+        }
       }
 
+      // Handle select menu interactions
+      if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === "ticket_type_select") {
+          await handleTicketTypeSelect(interaction)
+        } else if (interaction.customId.startsWith("order_status_select_")) {
+          await handleOrderStatusSelect(interaction)
+        }
+      }
+
+      // Handle button interactions
+      if (interaction.isButton()) {
+        if (interaction.customId === "ticket_close") {
+          await handleTicketClose(interaction)
+        } else if (interaction.customId === "ticket_order") {
+          await handleTicketOrderClick(interaction)
+        } else if (interaction.customId === "ticket_report") {
+          await handleTicketReportClick(interaction)
+        } else if (interaction.customId === "ticket_others") {
+          await handleTicketOthersClick(interaction)
+        } else if (interaction.customId === "order_confirm_yes") {
+          await handleOrderConfirmYes(interaction)
+        } else if (interaction.customId === "order_confirm_no") {
+          await handleOrderConfirmNo(interaction)
+        } else if (interaction.customId.startsWith("payment_")) {
+          await handlePaymentMethodSelect(interaction)
+        } else if (interaction.customId.startsWith("copy_")) {
+          await handleCopyButton(interaction)
+        } else if (interaction.customId === "verify_start") {
+          await handleVerifyStart(interaction)
+        } else if (interaction.customId === "order_form_start") {
+          await handleOrderFormStart(interaction)
+        } else if (interaction.customId === "ticket_transcript") {
+          await handleTicketTranscript(interaction)
+        } else if (interaction.customId === "ticket_delete") {
+          await handleTicketDelete(interaction)
+        }
+      }
+
+      if (interaction.isModalSubmit()) {
+        if (interaction.customId.startsWith("ticket_modal_")) {
+          await handleTicketModalSubmit(interaction)
+        } else if (interaction.customId === "captcha_modal") {
+          await handleCaptchaModalSubmit(interaction)
+        }
+      }
+    } catch (error) {
+      console.error("Interaction execution error:", error)
       try {
-        await command.execute(interaction)
-      } catch (error) {
-        console.error(`Error executing ${interaction.commandName}:`, error)
-        const replyMethod = interaction.replied || interaction.deferred ? "followUp" : "reply"
-        await interaction[replyMethod]({
-          content: "There was an error while executing this command!",
-          ephemeral: true,
-        })
-      }
-    }
-
-    // Handle select menu interactions
-    if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === "ticket_type_select") {
-        await handleTicketTypeSelect(interaction)
-      } else if (interaction.customId.startsWith("order_status_select_")) {
-        await handleOrderStatusSelect(interaction)
-      }
-    }
-
-    // Handle button interactions
-    if (interaction.isButton()) {
-      if (interaction.customId === "ticket_close") {
-        await handleTicketClose(interaction)
-      } else if (interaction.customId === "ticket_order") {
-        await handleTicketOrderClick(interaction)
-      } else if (interaction.customId === "ticket_report") {
-        await handleTicketReportClick(interaction)
-      } else if (interaction.customId === "ticket_others") {
-        await handleTicketOthersClick(interaction)
-      } else if (interaction.customId === "order_confirm_yes") {
-        await handleOrderConfirmYes(interaction)
-      } else if (interaction.customId === "order_confirm_no") {
-        await handleOrderConfirmNo(interaction)
-      } else if (interaction.customId.startsWith("payment_")) {
-        await handlePaymentMethodSelect(interaction)
-      } else if (interaction.customId.startsWith("copy_")) {
-        await handleCopyButton(interaction)
-      } else if (interaction.customId === "verify_start") {
-        await handleVerifyStart(interaction)
-      } else if (interaction.customId === "order_form_start") {
-        await handleOrderFormStart(interaction)
-      } else if (interaction.customId === "ticket_transcript") {
-        await handleTicketTranscript(interaction)
-      } else if (interaction.customId === "ticket_delete") {
-        await handleTicketDelete(interaction)
-      }
-    }
-
-    if (interaction.isModalSubmit()) {
-      if (interaction.customId.startsWith("ticket_modal_")) {
-        await handleTicketModalSubmit(interaction)
-      } else if (interaction.customId === "captcha_modal") {
-        await handleCaptchaModalSubmit(interaction)
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({ content: "Something went wrong, please try again." })
+        } else {
+          await interaction.reply({ content: "Something went wrong, please try again.", flags: MessageFlags.Ephemeral })
+        }
+      } catch (replyError) {
+        // Swallow errors, especially code 10062 (Unknown interaction) and 40060 (Already acknowledged)
+        if (replyError?.code !== 10062 && replyError?.code !== 40060) {
+          console.error("Failed to send fallback error reply:", replyError)
+        }
       }
     }
   },
@@ -385,12 +402,13 @@ async function handleTicketOthersClick(interaction) {
 }
 
 async function handleTicketTranscript(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
+
   try {
     // Simple transcript: fetch messages and send as file
     const messages = await interaction.channel.messages.fetch({ limit: 100 })
     const content = messages.map(m => `[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.content}`).reverse().join("\n")
 
-    const { AttachmentBuilder } = await import("discord.js")
     const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), { name: `transcript-${interaction.channel.name}.txt` })
 
     // Send to #transcripts channel
@@ -421,18 +439,25 @@ async function handleTicketTranscript(interaction) {
         files: [attachment]
       })
 
-      await interaction.reply({ content: `Transcript saved to ${transcriptsChannel}.`, ephemeral: true })
+      await interaction.editReply({ content: `Transcript saved to ${transcriptsChannel}.` })
     } else {
       // Fallback if creation failed
-      await interaction.reply({
+      await interaction.editReply({
         content: `**Transcript generated for ${interaction.channel}:**`,
         files: [attachment],
-        ephemeral: true
       })
     }
   } catch (error) {
     console.error("Error generating transcript:", error)
-    await interaction.reply({ content: "Failed to generate transcript.", ephemeral: true })
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: "Failed to generate transcript." })
+      } else {
+        await interaction.reply({ content: "Failed to generate transcript.", flags: MessageFlags.Ephemeral })
+      }
+    } catch (replyError) {
+      console.error("Failed to send transcript error reply:", replyError)
+    }
   }
 }
 
