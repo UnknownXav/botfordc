@@ -7,6 +7,7 @@ import {
   PermissionFlagsBits,
   ChannelType,
 } from "discord.js"
+import { configModel } from "../database/models/config.js"
 
 export default {
   data: new SlashCommandBuilder()
@@ -32,18 +33,17 @@ export default {
     }
 
     const embed = new EmbedBuilder()
-      .setTitle("gentle reminders")
+      .setTitle("TICKET HERE")
       .setDescription(
-        `**order**
-— opening a ticket means you follow our rules.
-— open only when you're sure.
-— marketplace area , buy at your own risk.
+        `need help with an order or have something to discuss? choose the ticket category that best fits your concern.
 
-**reports**
-— warranty applies with vouch..
+**orders** : if you would like to buy item
+**report** : for reports/concerns
 
-**others**
-— claim prize , partnership , etc.`,
+**gentle reminders**
+opening a ticket means you follow our rules
+open only when you're sure.
+this is blackmarket, buy at your own risk.`,
       )
       .setColor(0x2b2d31)
 
@@ -53,14 +53,38 @@ export default {
       new ButtonBuilder().setCustomId("ticket_others").setLabel("others").setStyle(ButtonStyle.Primary),
     )
 
+    let isUpdate = false
+
     try {
-      await channel.send({
-        embeds: [embed],
-        components: [row],
-      })
+      const storedMessageId = configModel.get(interaction.guild.id, `ticketpanel_${channel.id}`)
+
+      if (storedMessageId) {
+        try {
+          const existingMsg = await channel.messages.fetch(storedMessageId)
+          await existingMsg.edit({
+            embeds: [embed],
+            components: [row],
+          })
+          isUpdate = true
+        } catch (fetchOrEditError) {
+          const newMsg = await channel.send({
+            embeds: [embed],
+            components: [row],
+          })
+          configModel.set(interaction.guild.id, `ticketpanel_${channel.id}`, newMsg.id)
+        }
+      } else {
+        const newMsg = await channel.send({
+          embeds: [embed],
+          components: [row],
+        })
+        configModel.set(interaction.guild.id, `ticketpanel_${channel.id}`, newMsg.id)
+      }
 
       await interaction.reply({
-        content: `Ticket panel has been set up in ${channel}!`,
+        content: isUpdate
+          ? `Ticket panel updated in ${channel}!`
+          : `Ticket panel has been set up in ${channel}!`,
         flags: [4096], // MessageFlags.Ephemeral
       })
     } catch (error) {
